@@ -26,12 +26,12 @@
 </head>
 
 <body>
-    <input type="file" name="file" id="file">
+    <input type="file" accept='text/plain' multiple id="files" onchange="processFiles()" />
 
     <script type="text/javascript">
 
         //configuration
-        let magnification = 4;
+        let magnification = 1;
         let orientation = -1;
 
         //
@@ -62,84 +62,151 @@
         let offsetPixel = 1.5;
         // 
         let textWidth = 17;
-        let textHeight = 17;
+        let textHeight = 15;
+
+        // 是 0.2s 小格 一格的高度
+        let svgTextHeight = (unit * gridYBlocks);
+
+        let bodyMarginTop = 10;
 
         var ecgGridWidth = horizontalBlocks * unit * smallGridBlocks * gridXBlocks + offsetPixel;
         var ecgGridHeight = verticalBlocks * unit * smallGridBlocks * gridYBlocks + offsetPixel;
-        $(function () {
-            document.getElementById('file').onchange = function () {
 
-                var file = this.files[0];
-                var data = [];
-                var lineData = [];
-                var reader = new FileReader();
+        function processFiles() {
+            var filelist = document.getElementById('files').files;
+            var arrayFilelist = Array.from(filelist);
+            var sortedFilelist = arrayFilelist.sort(function(a,b) {
+                return a.name > b.name;
+            });
+            console.log(sortedFilelist);
 
-                reader.onload = function (progressEvent) {
-                    // Entire file
-                    //console.log(this.result);
-                    // By lines
-                    var lines = this.result.split('\n');
-                    for (var line = 0; line < lines.length; line++) {
-                        data.push(lines[line]);
+            writefiles(sortedFilelist[0],sortedFilelist[1]);
+           
+            //console.log(sortedFilelist[1]);
+            // for (var i = 0; i < filelist.length; i++) {
+            //     console.log(filelist[i].name)
+            //     writefiles(filelist[i]);
+            // }
+        }
+
+        function writefiles(file1, file2) {
+            
+            //raw data
+            var data = [];
+            var rawMarkData = [];
+           
+            //data for one row (10 sec)
+            var lineData = [];
+            var markData = [];
+            
+            var reader = new FileReader();
+            var reader2 = new FileReader();
+
+            reader2.onload = function (progressEvent) {
+                var lines = this.result.split('\n');
+                var temp = [];
+               
+                for (var line = 0; line < lines.length; line++) {
+                    if(lines[line]!=""){
+                        rawMarkData.push(lines[line]);
+                    }
+                    
+                }
+                
+                for(var i=0;i<6;i++){
+                    var t = [];
+                    markData.push(t);
+                }
+                console.log(markData);
+                for(var i=0;i<rawMarkData.length;i++){
+                    var index = Math.floor(rawMarkData[i]/2500);
+                    var value = rawMarkData[i]%2500;
+                    console.log("index = " + index + ", value = " + value);
+                    markData[index].push(value);
+                }
+                console.log(markData);
+                
+                                
+            }
+
+
+
+            reader2.readAsText(file2);
+            
+            
+            reader.onload = function (progressEvent) {
+                // Entire file
+                //console.log(this.result);
+                // By lines
+                var lines = this.result.split('\n');
+                for (var line = 0; line < lines.length; line++) {
+                    data.push(lines[line]);
+                }
+
+                var temp = [];
+
+                //first 5 zeros
+                for (var i = 1; i <= 5; i++) {
+                    temp.push({ "x": i * unit * 0.1, "y": 0 + baseLineOffset });
+                }
+
+                for (var i = 5; i < data.length; i++) {
+                    if (temp.length < 2500) {
+
+                        temp.push({ "x": temp.length * unit * 0.1, "y": data[i] * orientation * magnification + baseLineOffset });
+                        //console.log(temp.length);
+                    }
+                    else {
+                        console.log(temp);
+                        lineData.push(temp);
+                        temp = [];
+                        temp.push({ "x": temp.length * unit * 0.1, "y": data[i] * orientation * magnification + baseLineOffset });
+                        //console.log(temp.length);
                     }
 
-                    var temp = [];
+                }
+                console.log(temp);
+                lineData.push(temp);
+                
+                console.log("Raw data length" + data.length);
 
-                    //first 5 zeros
-                    for (i = 1; i <= 5; i++) {
-                        temp.push({ "x": i * unit * 0.1, "y": 0 + baseLineOffset });
-                    }
 
-                    for (i = 5; i < data.length; i++) {
-                        if (temp.length < 2500) {
 
-                            temp.push({ "x": temp.length * unit * 0.1, "y": data[i] * orientation * magnification + baseLineOffset });
-                            console.log(temp.length);
-                        }
-                        else {
-                            lineData.push(temp);
-                            var temp = [];
-                            temp.push({ "x": temp.length * unit * 0.1, "y": data[i] * orientation * magnification + baseLineOffset });
-                            console.log(temp.length);
-                        }
+                //This is the accessor function
+                var lineFunction = d3.svg.line()
+                    .x(function (d) { return d.x; })
+                    .y(function (d) { return d.y; })
+                    .interpolate("linear");
 
-                    }
-                    console.log("length" + data.length);
+                var layoutTable = d3.select("body").append("table");
+                var layoutTr = layoutTable.append("tr");
+                var layoutTd = layoutTr.append("td");
 
-                    //This is the accessor function
-                    var lineFunction = d3.svg.line()
-                        .x(function (d) { return d.x; })
-                        .y(function (d) { return d.y; })
-                        .interpolate("linear");
-                    run(lineFunction(lineData[0]), 0);
-                    run(lineFunction(lineData[1]), 10);
-                    run(lineFunction(lineData[2]), 20);
-                    run(lineFunction(lineData[3]), 30);
-                    run(lineFunction(lineData[4]), 40);
-                    run(lineFunction(lineData[5]), 50);
-                    drawTable();
-                    console.log(lineData[0]);
-                    console.log(lineData[1]);
-                    console.log(lineData[2]);
-                    console.log(lineData[3]);
-                    console.log(lineData[4]);
-                    console.log(lineData[5]);
+                var secArray = [0,10,20,30,40,50];
+                for(var i=0;i<6;i++){
+                    console.log("for array" + i);
+                    drawEcgChart(lineFunction(lineData[i]), secArray[i], layoutTd,markData[i]);
+                }
+                
+                // console.log(lineData[0]);
+                // console.log(lineData[1]);
+                // console.log(lineData[2]);
+                // console.log(lineData[3]);
+                // console.log(lineData[4]);
+                // console.log(lineData[5]);
 
-                };
-                reader.readAsText(file);
-                document.getElementById('file').style.visibility = 'hidden';
-                removeDummy();
-
+                drawRightTable(layoutTr.append("td"));
             };
+            reader.readAsText(file1);
+            document.getElementById('files').style.visibility = 'hidden';
+            removeDummy();
+            
+        };
 
 
-
-        })
-
-        function run(ecgData, startSec) {
+        function drawEcgChart(ecgData, startSec, layoutTable,markData) {
             //The SVG Container
-            var svgContainer = d3.select("body").append("svg")
-                .attr("id", "mySvg")
+            var svgContainer = layoutTable.append("svg")
                 .attr("style", "padding-left: 5px")
                 .attr("width", ecgGridWidth)
                 .attr("height", ecgGridHeight);
@@ -199,113 +266,272 @@
                 .attr("height", "100%")
                 .attr("width", "100%");
 
-            // Draw text
-            var svgText = d3.select("body").append("svg")
+            // Draw time (sec)
+            var svgText = layoutTable.append("svg")
+                .attr("style", "display: block")
                 .attr("width", horizontalBlocks * unit * smallGridBlocks * gridXBlocks + offsetPixel + textWidth)
-                // (unit * gridYBlocks) 是 0.2s 小格 一格的高度
-                .attr("height", (unit * gridYBlocks));
+                .attr("height", svgTextHeight);
 
-            for (idx = 0; idx <= 10; idx++) {
+            for (var idx = 0; idx <= 10; idx++) {
                 svgText.append("text")
                     .attr("x", 0 + (idx * (unit * gridXBlocks * largeGridXBlocks)))
                     .attr("y", textHeight)
                     .attr("fill", "black")
+                    .attr("font-size", 14)
                     .text(startSec + idx);
             }
 
+            //畫心率
             svgContainer.append("path")
                 .attr("d", ecgData)
                 .attr("stroke", "black").attr("stroke-width", 1.3)
                 .attr("fill", "none");
 
+            //標ＡＦ點
+            for (i = 0; i < markData.length; i++) {
+                if (markData[i]< 2500) {
+                    svgContainer.append('circle').attr('cx', markData[i] * unit * 0.1).attr('cy', 5).attr('r', 2);
+                }
+                else{
+                    console.log("circle error");
+                }
+            }
 
         }
 
-        // All is hardcode
-        function drawTable() {
-            var titleWidth = ecgGridWidth / 12;
-            var titleHeight = 50;
-            var titleStrY = 28;
+        function drawRightTable(layoutTd) {
+            let rightTableWidth = 200;
+            // 6 個 ecg 圖表的高 加上 6 個 秒數排的高
+            let rightTableHeight = (ecgGridHeight * 6) + (svgTextHeight * 6);
+            var svgTable = layoutTd.append("svg")
+                .attr("width", rightTableWidth)
+                .attr("height", (ecgGridHeight * 6) + (svgTextHeight * 6));
 
-            // 顯示的的文字
-            var titleStrs = ["Mean heart rate", "Unit:bpm", "PR interval", "Unit:sec.", "QRS duration", "Unit:sec.", "QT interval", "Unit:sec.", "QTc interval", "Unit:sec.", "ST level", "Unit:mm."];
-            // 文字距離左邊多少距離
-            var titleTextPaddingLeft = [5, 10, 15, 15, 10, 15, 10, 15, 10, 15, 15, 15];
-            // 每個格子的寬度，如果第 n 個寬度加 5 pixel，表示寬度增加 5 pixel，但是 n+1 的 x 位置要加上 5 ，這個加上 5 的動作在 titleXOffset 中設定。
-            var titleRectWidthOffset = [titleWidth + 13, titleWidth - 13, titleWidth, titleWidth, titleWidth, titleWidth, titleWidth, titleWidth, titleWidth, titleWidth, titleWidth, titleWidth];
-            // 位移格子
-            var titleXOffset = [0, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-
-            var svgTitleTable = d3.select("body").append("svg")
-                .attr("style", "padding-left: 5px")
-                .attr("width", ecgGridWidth)
-                .attr("height", titleHeight);
-
-            for (i = 0; i < 12; i++) {
-                var g = svgTitleTable.append("g");
-                var temp = g.append("rect")
-                    .attr("x", 0 + (i * titleWidth) + titleXOffset[i])
-                    .attr("y", 0)
-                    .attr("width", titleRectWidthOffset[i])
-                    .attr("height", titleHeight)
-                    .attr("fill", "none")
-                    .attr("stroke-width", 2)
-                    .attr("stroke", "black");
-                g.append("text")
-                    .attr("x", titleTextPaddingLeft[i] + (i * titleWidth) + titleXOffset[i])
-                    .attr("y", titleStrY)
-                    .attr("font-size", 10)
-                    .attr("fill", "black")
-                    .text(titleStrs[i]);
-            }
-
-            var valueStrs = [0, 0, 0, 0, 0, 0];
-            var valueWidth = ecgGridWidth / 6;
-            var valueHeight = 50;
-            var valueStrY = 28;
-            var valueTextPaddingLeft = (valueWidth / 2) - 5;
-
-            var svgValueTable = d3.select("body").append("svg")
-                .attr("style", "padding-left: 5px")
-                .attr("width", ecgGridWidth)
-                .attr("height", valueHeight);
-            svgValueTable.append("defs");
-
-            // smallGrid
-            svgValueTable.append("pattern")
-                .attr("id", "valueGrid")
-                .attr("patternUnits", "userSpaceOnUse")
-                .attr("width", valueWidth)
-                .attr("height", valueHeight)
-
-                .append("rect")
+            // Top text
+            svgTable.append("rect")
                 .attr("x", 0)
                 .attr("y", 0)
-                .attr("width", valueWidth)
-                .attr("height", valueHeight)
+                .attr("width", rightTableWidth)
+                .attr("height", rightTableHeight)
                 .attr("fill", "none")
                 .attr("stroke-width", 2)
                 .attr("stroke", "black");
-
-            svgValueTable.append("rect")
-                .attr("fill", "url(#valueGrid)")
-                .attr("stroke-width", 2)
+            svgTable.append("text")
+                .attr("x", 10)
+                .attr("y", bodyMarginTop + 10)
+                .attr("fill", "black")
+                .attr("font-size", 14)
+                .attr("stroke-width", 1)
                 .attr("stroke", "black")
-                .attr("height", "100%")
-                .attr("width", "100%");
+                .text("Name");
+            svgTable.append("text")
+                .attr("x", 10)
+                .attr("y", bodyMarginTop + 30)
+                .attr("fill", "black")
+                .attr("font-size", 14)
+                .attr("stroke-width", 1)
+                .attr("stroke", "black")
+                .text("ID");
+            svgTable.append("text")
+                .attr("x", 10)
+                .attr("y", bodyMarginTop + 50)
+                .attr("fill", "black")
+                .attr("font-size", 14)
+                .attr("stroke-width", 1)
+                .attr("stroke", "black")
+                .text("Sex");
+            svgTable.append("text")
+                .attr("x", 10)
+                .attr("y", bodyMarginTop + 70)
+                .attr("fill", "black")
+                .attr("font-size", 14)
+                .attr("stroke-width", 1)
+                .attr("stroke", "black")
+                .text("Age");
+            svgTable.append("text")
+                .attr("x", 10)
+                .attr("y", bodyMarginTop + 90)
+                .attr("fill", "black")
+                .attr("font-size", 14)
+                .attr("stroke-width", 1)
+                .attr("stroke", "black")
+                .text("Data");
+            svgTable.append("text")
+                .attr("x", 10)
+                .attr("y", bodyMarginTop + 110)
+                .attr("fill", "black")
+                .attr("font-size", 14)
+                .attr("stroke-width", 1)
+                .attr("stroke", "black")
+                .text("Time star");
+            svgTable.append("text")
+                .attr("x", 10)
+                .attr("y", bodyMarginTop + 130)
+                .attr("fill", "black")
+                .attr("font-size", 14)
+                .attr("stroke-width", 1)
+                .attr("stroke", "black")
+                .text("Time end");
+            svgTable.append("text")
+                .attr("x", 10)
+                .attr("y", bodyMarginTop + 150)
+                .attr("fill", "black")
+                .attr("font-size", 14)
+                .attr("stroke-width", 1)
+                .attr("stroke", "black")
+                .text("BH");
+            svgTable.append("text")
+                .attr("x", 10)
+                .attr("y", bodyMarginTop + 170)
+                .attr("fill", "black")
+                .attr("font-size", 14)
+                .attr("stroke-width", 1)
+                .attr("stroke", "black")
+                .text("BW");
 
-            for (i = 0; i < 6; i++) {
-                svgValueTable.append("text")
-                    .attr("x", (i * valueWidth) + valueTextPaddingLeft)
-                    .attr("y", valueStrY)
-                    .attr("font-size", 10)
-                    .attr("fill", "black")
-                    .text(valueStrs[i]);
-            }
+            // middle text
+            svgTable.append("text")
+                .attr("x", 10)
+                .attr("y", bodyMarginTop + (rightTableHeight / 3) + 10)
+                .attr("fill", "black")
+                .attr("font-size", 14)
+                .attr("stroke-width", 0.5)
+                .attr("stroke", "black")
+                .text("HR");
+            svgTable.append("text")
+                .attr("x", 110)
+                .attr("y", bodyMarginTop + (rightTableHeight / 3) + 10)
+                .attr("fill", "black")
+                .attr("font-size", 14)
+                .attr("stroke-width", 0.5)
+                .attr("stroke", "black")
+                .text("bpm");
+
+            svgTable.append("text")
+                .attr("x", 10)
+                .attr("y", bodyMarginTop + (rightTableHeight / 3) + 30)
+                .attr("fill", "black")
+                .attr("font-size", 14)
+                .attr("stroke-width", 0.5)
+                .attr("stroke", "black")
+                .text("PR");
+            svgTable.append("text")
+                .attr("x", 110)
+                .attr("y", bodyMarginTop + (rightTableHeight / 3) + 30)
+                .attr("fill", "black")
+                .attr("font-size", 14)
+                .attr("stroke-width", 0.5)
+                .attr("stroke", "black")
+                .text("ms");
+
+            svgTable.append("text")
+                .attr("x", 10)
+                .attr("y", bodyMarginTop + (rightTableHeight / 3) + 50)
+                .attr("fill", "black")
+                .attr("font-size", 14)
+                .attr("stroke-width", 0.5)
+                .attr("stroke", "black")
+                .text("QRS");
+            svgTable.append("text")
+                .attr("x", 110)
+                .attr("y", bodyMarginTop + (rightTableHeight / 3) + 50)
+                .attr("fill", "black")
+                .attr("font-size", 14)
+                .attr("stroke-width", 0.5)
+                .attr("stroke", "black")
+                .text("ms");
+
+            svgTable.append("text")
+                .attr("x", 10)
+                .attr("y", bodyMarginTop + (rightTableHeight / 3) + 70)
+                .attr("fill", "black")
+                .attr("font-size", 14)
+                .attr("stroke-width", 0.5)
+                .attr("stroke", "black")
+                .text("QT");
+            svgTable.append("text")
+                .attr("x", 110)
+                .attr("y", bodyMarginTop + (rightTableHeight / 3) + 70)
+                .attr("fill", "black")
+                .attr("font-size", 14)
+                .attr("stroke-width", 0.5)
+                .attr("stroke", "black")
+                .text("ms");
+
+            svgTable.append("text")
+                .attr("x", 10)
+                .attr("y", bodyMarginTop + (rightTableHeight / 3) + 90)
+                .attr("fill", "black")
+                .attr("font-size", 14)
+                .attr("stroke-width", 0.5)
+                .attr("stroke", "black")
+                .text("QTc");
+            svgTable.append("text")
+                .attr("x", 110)
+                .attr("y", bodyMarginTop + (rightTableHeight / 3) + 90)
+                .attr("fill", "black")
+                .attr("font-size", 14)
+                .attr("stroke-width", 0.5)
+                .attr("stroke", "black")
+                .text("ms");
+
+            svgTable.append("text")
+                .attr("x", 10)
+                .attr("y", bodyMarginTop + (rightTableHeight / 3) + 110)
+                .attr("fill", "black")
+                .attr("font-size", 14)
+                .attr("stroke-width", 0.5)
+                .attr("stroke", "black")
+                .text("ST");
+            svgTable.append("text")
+                .attr("x", 110)
+                .attr("y", bodyMarginTop + (rightTableHeight / 3) + 110)
+                .attr("fill", "black")
+                .attr("font-size", 14)
+                .attr("stroke-width", 0.5)
+                .attr("stroke", "black")
+                .text("mm");
+
+            // Bottom text
+            svgTable.append("text")
+                .attr("x", 10)
+                .attr("y", bodyMarginTop + ((rightTableHeight / 3) * 2) + 10)
+                .attr("fill", "black")
+                .attr("font-size", 14)
+                .attr("stroke-width", 0.5)
+                .attr("stroke", "black")
+                .text("ECG Result");
+
+            svgTable.append("text")
+                .attr("x", 10)
+                .attr("y", bodyMarginTop + ((rightTableHeight / 3) * 2) + 30)
+                .attr("fill", "black")
+                .attr("font-size", 14)
+                .attr("stroke-width", 0.5)
+                .attr("stroke", "black")
+                .text("▢ Normal");
+
+            svgTable.append("text")
+                .attr("x", 10)
+                .attr("y", bodyMarginTop + ((rightTableHeight / 3) * 2) + 50)
+                .attr("fill", "black")
+                .attr("font-size", 14)
+                .attr("stroke-width", 0.5)
+                .attr("stroke", "black")
+                .text("▢ Arrhythmia");
+
+            svgTable.append("text")
+                .attr("x", 10)
+                .attr("y", bodyMarginTop + ((rightTableHeight / 3) * 2) + 70)
+                .attr("fill", "black")
+                .attr("font-size", 14)
+                .attr("stroke-width", 0.5)
+                .attr("stroke", "black")
+                .text("▢ Suspect Atrial fibrillcation");
         }
 
         function removeDummy() {
-            var elem = document.getElementById('file');
+            var elem = document.getElementById('files');
             elem.parentNode.removeChild(elem);
             return false;
         }
