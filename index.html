@@ -71,17 +71,27 @@
 
         var ecgGridWidth = horizontalBlocks * unit * smallGridBlocks * gridXBlocks + offsetPixel;
         var ecgGridHeight = verticalBlocks * unit * smallGridBlocks * gridYBlocks + offsetPixel;
+        
+        //Sorted file list
+        var sortedFilelist = [];
+        //raw data
+        var data = [];
+        //data for one row (10 sec)
+        var lineData = [];
+        var markData = [];
+
+
 
         function processFiles() {
             var filelist = document.getElementById('files').files;
             var arrayFilelist = Array.from(filelist);
-            var sortedFilelist = arrayFilelist.sort(function(a,b) {
+            sortedFilelist = arrayFilelist.sort(function (a, b) {
                 return a.name > b.name;
             });
             console.log(sortedFilelist);
 
-            writefiles(sortedFilelist[0],sortedFilelist[1]);
-           
+            writefiles(sortedFilelist[0], sortedFilelist[1]);
+
             //console.log(sortedFilelist[1]);
             // for (var i = 0; i < filelist.length; i++) {
             //     console.log(filelist[i].name)
@@ -90,50 +100,37 @@
         }
 
         function writefiles(file1, file2) {
-            
-            //raw data
-            var data = [];
+
+
             var rawMarkData = [];
-           
-            //data for one row (10 sec)
-            var lineData = [];
-            var markData = [];
-            
+
             var reader = new FileReader();
             var reader2 = new FileReader();
 
             reader2.onload = function (progressEvent) {
                 var lines = this.result.split('\n');
                 var temp = [];
-               
                 for (var line = 0; line < lines.length; line++) {
-                    if(lines[line]!=""){
+                    if (lines[line] != "") {
                         rawMarkData.push(lines[line]);
                     }
-                    
+
                 }
-                
-                for(var i=0;i<6;i++){
+                for (var i = 0; i < 6; i++) {
                     var t = [];
                     markData.push(t);
                 }
                 console.log(markData);
-                for(var i=0;i<rawMarkData.length;i++){
-                    var index = Math.floor(rawMarkData[i]/2500);
-                    var value = rawMarkData[i]%2500;
+                for (var i = 0; i < rawMarkData.length; i++) {
+                    var index = Math.floor(rawMarkData[i] / 2500);
+                    var value = rawMarkData[i] % 2500;
                     console.log("index = " + index + ", value = " + value);
                     markData[index].push(value);
                 }
                 console.log(markData);
-                
-                                
             }
-
-
-
             reader2.readAsText(file2);
-            
-            
+
             reader.onload = function (progressEvent) {
                 // Entire file
                 //console.log(this.result);
@@ -142,52 +139,19 @@
                 for (var line = 0; line < lines.length; line++) {
                     data.push(lines[line]);
                 }
-
-                var temp = [];
-
-                //first 5 zeros
-                for (var i = 1; i <= 5; i++) {
-                    temp.push({ "x": i * unit * 0.1, "y": 0 + baseLineOffset });
-                }
-
-                for (var i = 5; i < data.length; i++) {
-                    if (temp.length < 2500) {
-
-                        temp.push({ "x": temp.length * unit * 0.1, "y": data[i] * orientation * magnification + baseLineOffset });
-                        //console.log(temp.length);
-                    }
-                    else {
-                        console.log(temp);
-                        lineData.push(temp);
-                        temp = [];
-                        temp.push({ "x": temp.length * unit * 0.1, "y": data[i] * orientation * magnification + baseLineOffset });
-                        //console.log(temp.length);
-                    }
-
-                }
-                console.log(temp);
-                lineData.push(temp);
-                
+                preProccessedLineData(data, 1);
                 console.log("Raw data length" + data.length);
-
-
-
-                //This is the accessor function
-                var lineFunction = d3.svg.line()
-                    .x(function (d) { return d.x; })
-                    .y(function (d) { return d.y; })
-                    .interpolate("linear");
 
                 var layoutTable = d3.select("body").append("table");
                 var layoutTr = layoutTable.append("tr");
                 var layoutTd = layoutTr.append("td");
 
-                var secArray = [0,10,20,30,40,50];
-                for(var i=0;i<6;i++){
+                var secArray = [0, 10, 20, 30, 40, 50];
+                for (var i = 0; i < 6; i++) {
                     console.log("for array" + i);
-                    drawEcgChart(lineFunction(lineData[i]), secArray[i], layoutTd,markData[i]);
+                    drawEcgChart(lineFunction(lineData[i]), secArray[i], layoutTd, markData[i]);
                 }
-                
+
                 // console.log(lineData[0]);
                 // console.log(lineData[1]);
                 // console.log(lineData[2]);
@@ -196,15 +160,46 @@
                 // console.log(lineData[5]);
 
                 drawRightTable(layoutTr.append("td"));
+                drawForm(layoutTr.append("td"));
             };
             reader.readAsText(file1);
             document.getElementById('files').style.visibility = 'hidden';
             removeDummy();
-            
+
         };
 
+        //This is the accessor function
+        var lineFunction = d3.svg.line()
+            .x(function (d) { return d.x; })
+            .y(function (d) { return d.y; })
+            .interpolate("linear");
 
-        function drawEcgChart(ecgData, startSec, layoutTable,markData) {
+        function preProccessedLineData(rawData, mag) {
+            lineData = [];
+            var temp = [];
+            //first 5 zeros
+            for (var i = 1; i <= 5; i++) {
+                temp.push({ "x": i * unit * 0.1, "y": 0 + baseLineOffset });
+            }
+
+            for (var i = 5; i < rawData.length; i++) {
+                if (temp.length < 2500) {
+                    temp.push({ "x": temp.length * unit * 0.1, "y": rawData[i] * orientation * mag + baseLineOffset });
+                    //console.log(temp.length);
+                }
+                else {
+                    console.log(temp);
+                    lineData.push(temp);
+                    temp = [];
+                    temp.push({ "x": temp.length * unit * 0.1, "y": rawData[i] * orientation * mag + baseLineOffset });
+                    //console.log(temp.length);
+                }
+
+            }
+            lineData.push(temp);
+        }
+
+        function drawEcgChart(ecgData, startSec, layoutTable, markData) {
             //The SVG Container
             var svgContainer = layoutTable.append("svg")
                 .attr("style", "padding-left: 5px")
@@ -283,19 +278,76 @@
 
             //畫心率
             svgContainer.append("path")
+                .attr("class", "line" + startSec)
                 .attr("d", ecgData)
                 .attr("stroke", "black").attr("stroke-width", 1.3)
-                .attr("fill", "none");
+                .attr("fill", "none")
 
             //標ＡＦ點
             for (i = 0; i < markData.length; i++) {
-                if (markData[i]< 2500) {
+                if (markData[i] < 2500) {
                     svgContainer.append('circle').attr('cx', markData[i] * unit * 0.1).attr('cy', 5).attr('r', 2);
                 }
-                else{
+                else {
                     console.log("circle error");
                 }
             }
+
+
+
+        }
+
+        function drawForm(layoutTd) {
+
+            var dropDownData = ['0.5mm/mv','1mm/mv','5mm/mv', '10mm/mv', '20mm/mv', '40mm/mv'];
+            var select = layoutTd.append('select')
+                .attr('class', 'select')
+                .on('change', dropDownOnchange)
+
+
+            var options = select
+                .selectAll('option')
+                .data(dropDownData).enter()
+                .append('option')
+                    .text(function (d) {return d; })
+                    .property("selected", function(d){ return d === '10mm/mv'; })
+
+            function dropDownOnchange() {
+                selectValue = d3.select('select').property('value')
+                console.log(selectValue);
+                if (selectValue == dropDownData[0]) {
+                        changeLineMag(8);                 
+                }
+                else if (selectValue == dropDownData[1]) {                  
+                        changeLineMag(4);                   
+                }
+                else if (selectValue == dropDownData[2]) {
+                        changeLineMag(2);
+                }
+                else if (selectValue == dropDownData[3]) {
+                        changeLineMag(1);
+                }
+                else if (selectValue == dropDownData[4]) {                   
+                        changeLineMag(0.5);                 
+                }
+                else if (selectValue == dropDownData[5]) {                   
+                        changeLineMag(0.25);                   
+                }
+
+                function changeLineMag(m) {
+                    for(var i=0; i<6; i++){
+                        var svg = d3.select("body").transition();
+                        preProccessedLineData(data, m);
+                        console.log(data);
+                        console.log(lineData);
+                        svg.select(".line" + i * 10) //change the line
+                            .duration(750)
+                            .attr("d", lineFunction(lineData[i]));
+                    } 
+                }
+            };
+
+
 
         }
 
@@ -323,7 +375,7 @@
                 .attr("font-size", 14)
                 .attr("stroke-width", 1)
                 .attr("stroke", "black")
-                .text("Name");
+                .text("Name : " + sortedFilelist[0].name);
             svgTable.append("text")
                 .attr("x", 10)
                 .attr("y", bodyMarginTop + 30)
