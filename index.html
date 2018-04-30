@@ -286,7 +286,11 @@
             //標ＡＦ點
             for (i = 0; i < markData.length; i++) {
                 if (markData[i] < 2500) {
-                    svgContainer.append('circle').attr('cx', markData[i] * unit * 0.1).attr('cy', 5).attr('r', 2);
+                    svgContainer.append('circle')
+                                .attr('cx', markData[i] * unit * 0.1)
+                                .attr('cy', 5)
+                                .attr('r', 3)
+                                .attr('fill','#0019F6');
                 }
                 else {
                     console.log("circle error");
