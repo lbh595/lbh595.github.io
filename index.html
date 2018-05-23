@@ -124,6 +124,8 @@
                 preProccessedLineData(data, 1);
                 
                 rowCount = Math.ceil(data.length/2500);
+                if(rowCount > 6)
+                    rowCount = 6;
                 console.log("Raw data length" + data.length);
                 console.log("Raw data row count" + rowCount);
 
