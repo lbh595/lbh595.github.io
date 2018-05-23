@@ -17,7 +17,9 @@
         svg {
             background: #fff;
             vertical-align: top;
+            
         }
+
     </style>
     <title>ECG</title>
     <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
@@ -76,9 +78,12 @@
         var sortedFilelist = [];
         //raw data
         var data = [];
-        //data for one row (10 sec)
+        //array of row data (10 sec)
         var lineData = [];
+        //array of row mark data (10 sec)
         var markData = [];
+        //ecg rowCount
+        var rowCount = 0;
 
 
 
@@ -107,30 +112,7 @@
             var reader = new FileReader();
             var reader2 = new FileReader();
 
-            reader2.onload = function (progressEvent) {
-                var lines = this.result.split('\n');
-                var temp = [];
-                for (var line = 0; line < lines.length; line++) {
-                    if (lines[line] != "") {
-                        rawMarkData.push(lines[line]);
-                    }
-
-                }
-                for (var i = 0; i < 6; i++) {
-                    var t = [];
-                    markData.push(t);
-                }
-                console.log(markData);
-                for (var i = 0; i < rawMarkData.length; i++) {
-                    var index = Math.floor(rawMarkData[i] / 2500);
-                    var value = rawMarkData[i] % 2500;
-                    console.log("index = " + index + ", value = " + value);
-                    markData[index].push(value);
-                }
-                console.log(markData);
-            }
-            reader2.readAsText(file2);
-
+            //handle raw data file
             reader.onload = function (progressEvent) {
                 // Entire file
                 //console.log(this.result);
@@ -140,14 +122,23 @@
                     data.push(lines[line]);
                 }
                 preProccessedLineData(data, 1);
+                
+                rowCount = Math.ceil(data.length/2500);
                 console.log("Raw data length" + data.length);
+                console.log("Raw data row count" + rowCount);
 
-                var layoutTable = d3.select("body").append("table");
+                var layoutTable = d3.select("body")
+                    .append("table")
+                        .style("rules", "all")
+                        .style("border","1px")
+                        .style("frame", "rhs below");
+                    
                 var layoutTr = layoutTable.append("tr");
                 var layoutTd = layoutTr.append("td");
 
-                var secArray = [0, 10, 20, 30, 40, 50];
-                for (var i = 0; i < 6; i++) {
+                var secArray = [0, 10, 20, 30, 40, 50, 60, 70];
+                
+                for (var i = 0; i < rowCount; i++) {
                     console.log("for array" + i);
                     drawEcgChart(lineFunction(lineData[i]), secArray[i], layoutTd, markData[i]);
                 }
@@ -162,7 +153,39 @@
                 drawRightTable(layoutTr.append("td"));
                 drawForm(layoutTr.append("td"));
             };
+
+            
+            
+            //handle raw mark data file
+            reader2.onload = function (progressEvent) {
+                var lines = this.result.split('\n');
+                var temp = [];
+                for (var line = 0; line < lines.length; line++) {
+                    if (lines[line] != "") {
+                        rawMarkData.push(lines[line]);
+                    }
+
+                }
+                
+                for (var i = 0; i < 7; i++) {
+                    var t = [];
+                    markData.push(t);
+                }
+                console.log(markData);
+                console.log("rawMarkData " + rawMarkData.length);
+                for (var i = 0; i < rawMarkData.length; i++) {
+                    var index = Math.floor((rawMarkData[i]-1) / 2500);
+                    var value = (rawMarkData[i]-1) % 2500;
+                    console.log("index = " + index + ", value = " + value);
+                    if(!(index === 0 && value === 0 && (rawMarkData[i]!=1)))
+                        markData[index].push(value);
+                }
+                console.log(markData);
+            }
+            
+            
             reader.readAsText(file1);
+            reader2.readAsText(file2);
             document.getElementById('files').style.visibility = 'hidden';
             removeDummy();
 
@@ -284,16 +307,18 @@
                 .attr("fill", "none")
 
             //標ＡＦ點
-            for (i = 0; i < markData.length; i++) {
-                if (markData[i] < 2500) {
-                    svgContainer.append('circle')
-                                .attr('cx', markData[i] * unit * 0.1)
-                                .attr('cy', 5)
-                                .attr('r', 3)
-                                .attr('fill','#0019F6');
-                }
-                else {
-                    console.log("circle error");
+            if(!(markData === undefined || markData.length == 0)){
+                for (i = 0; i < markData.length; i++) {
+                    if (markData[i] < 2500) {
+                        svgContainer.append('circle')
+                                    .attr('cx', markData[i] * unit * 0.1)
+                                    .attr('cy', 5)
+                                    .attr('r', 3)
+                                    .attr('fill','#0019F6');
+                    }
+                    else {
+                        console.log("circle error");
+                    }
                 }
             }
 
@@ -339,7 +364,7 @@
                 }
 
                 function changeLineMag(m) {
-                    for(var i=0; i<6; i++){
+                    for(var i=0; i<this.rowCount; i++){
                         var svg = d3.select("body").transition();
                         preProccessedLineData(data, m);
                         console.log(data);
@@ -360,6 +385,7 @@
             // 6 個 ecg 圖表的高 加上 6 個 秒數排的高
             let rightTableHeight = (ecgGridHeight * 6) + (svgTextHeight * 6);
             var svgTable = layoutTd.append("svg")
+                .attr("style", "border:1px")
                 .attr("width", rightTableWidth)
                 .attr("height", (ecgGridHeight * 6) + (svgTextHeight * 6));
 
